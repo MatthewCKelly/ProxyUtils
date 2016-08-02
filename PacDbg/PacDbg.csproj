@@ -86,14 +86,14 @@
   <ItemGroup>
     <Reference Include="EncodingTools, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\..\..\..\Downloads\DetectEncoding_src\DetectEncoding_src\EncodingTools\bin\Release\EncodingTools.dll</HintPath>
+      <HintPath>.\EncodingTools.dll</HintPath>
     </Reference>
     <Reference Include="Jint, Version=0.9.2.0, Culture=neutral, PublicKeyToken=973cde3f1cafed03, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\..\..\..\..\..\Support\Jint.dll</HintPath>
+      <HintPath>.\Jint.dll</HintPath>
     </Reference>
     <Reference Include="Storm.TextEditor">
-      <HintPath>..\..\..\..\..\Downloads\storm\Storm.TextEditor.dll</HintPath>
+      <HintPath>.\Storm.TextEditor.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -130,6 +130,7 @@
       <DependentUpon>Resources.resx</DependentUpon>
       <DesignTime>True</DesignTime>
     </Compile>
+    <None Include="ClassDiagram1.cd" />
     <None Include="Properties\app.manifest" />
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
@@ -143,6 +144,7 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="Oxygen-Icons.org-Oxygen-Apps-konqueror.ico" />
+    <Content Include="Resources\opentestfile.png" />
     <None Include="Resources\Actions-arrow-right-icon.png" />
     <None Include="Resources\open.png" />
     <None Include="Resources\openfile.png" />

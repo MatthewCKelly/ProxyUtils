@@ -11,22 +11,34 @@ using System.Linq;
 using System.Net;
 using System.Security.Permissions;
 using System.Text;
+using System.Threading;
 using System.Windows.Forms;
 
 namespace PacDbg
 {
-   
+
     public partial class Form1 : Form
     {
+
+        delegate void SetTextCallback(string text);
+        private delegate string GetStringParameterDelegate();
         /// <summary>
         /// Runs background task to update proxy
         /// </summary>
         BackgroundWorker worker = new BackgroundWorker();
 
+
+
         /// <summary>
         /// Stores Execution History in a List
         /// </summary>
         List<string> executionHistory = new List<string>();
+
+        /// <summary>
+        /// For file loading
+        /// </summary>
+        // List<string> testURLS = new List<string>();
+        List<string> testURLS = new List<string>();
 
         /// <summary>
         /// Proxy Functions
@@ -52,6 +64,19 @@ namespace PacDbg
         public Form1()
         {
             InitializeComponent();
+        }
+
+
+        string GetStatus()
+        {
+            if (InvokeRequired)
+            {
+                // We're not in the UI thread, so we need to call Invoke
+                return (string)Invoke(new GetStringParameterDelegate(GetStatus));
+            }
+
+            // Property returns a string
+            return textEditor1.Text;
         }
 
         private int SearchBytePattern(byte[] pattern, byte[] bytes)
@@ -82,21 +107,22 @@ namespace PacDbg
             return matches;
         }
 
+
         private void GetSystemProxy()
         {
             RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Internet Settings");
 
-            if (key!=null)
+            if (key != null)
             {
                 textBoxPacFile.Text = key.GetValue("AutoConfigURL", "").ToString();
 
                 // dodgy method to get PAC file set via auto detect settings
                 // this method is not 100% and should be replaced with a proper method
-                byte[] bytes =(byte[])key.OpenSubKey("Connections").GetValue("DefaultConnectionSettings", null);
+                byte[] bytes = (byte[])key.OpenSubKey("Connections").GetValue("DefaultConnectionSettings", null);
 
-                if (bytes!=null)
+                if (bytes != null)
                 {
-                    byte[] searchPattern=new byte[4]{ 26,0,0,0 };
+                    byte[] searchPattern = new byte[4] { 26, 0, 0, 0 };
                     int i = SearchBytePattern(searchPattern, bytes) + 4;
 
                     string wpad = System.Text.Encoding.ASCII.GetString(bytes, i, bytes.Length - i);
@@ -140,7 +166,7 @@ namespace PacDbg
         {
             worker.DoWork += worker_DoWork;
             worker.RunWorkerCompleted += worker_RunWorkerCompleted;
-            textBoxURL.Text = "http://www.google.com.au/";
+            textBoxURL.Text = "http://www.google.co.nz/";
 
             GetSystemProxy();
 
@@ -148,7 +174,7 @@ namespace PacDbg
 
         void worker_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
         {
-            this.Invoke(new Action(delegate
+            Invoke(new Action(delegate
             {
                 toolStripButtonRun.Enabled = true;
             }));
@@ -175,14 +201,19 @@ namespace PacDbg
                         int line;
                         if (Int32.TryParse(lineNumber, out line))
                         {
-                            textEditor1.HighlightActiveLine = true;
-                            textEditor1.GotoLine(line - 1);
+                            textEditor1.SelectAll();
+                            textEditor1.SelectionBackColor = textEditor1.BackColor;
+                            textEditor1.Select(textEditor1.GetFirstCharIndexFromLine(line - 1), textEditor1.Lines[line - 1].Length);
+                            textEditor1.SelectionBackColor = Color.Yellow;
+                            //    //    textEditor1.HighlightActiveLine = true;
+                            //    //    textEditor1.GotoLine(line - 1);
                         }
                     }
 
+
                 }));
             }
-            
+
         }
 
         /// <summary>
@@ -193,8 +224,12 @@ namespace PacDbg
         [PermissionSet(SecurityAction.Assert, Unrestricted = true)]
         void worker_DoWork(object sender, DoWorkEventArgs e)
         {
-            string script=textEditor1.Text;
 
+
+            //  var script = (string)textEditor1.Invoke(new Func<string>(() => textEditor1.Text));
+            string script = GetStatus();
+
+            // string script = textEditor1.Text.ToString();
             IsInNetDelegate IsInNet = PacExtensions.IsInNetAction;
             localHostOrDomainIsDelegate localHostOrDomainIs = PacExtensions.localHostOrDomainIs;
             myIpAddressDelegate myIpAddress = PacExtensions.myIpAddress;
@@ -228,7 +263,8 @@ namespace PacDbg
             try
             {
                 jint.Step += jint_Step;
-                textEditor1.Text = script;
+                // Not sure why replacing text ??
+                // textEditor1.Text = script;
 
                 var result = jint.Run(script);
 
@@ -239,40 +275,66 @@ namespace PacDbg
                 }));
 
                 Uri uri;
+                
+                //if (!textBoxURL.Text.Contains("://"))
+                //{
+                //    Invoke(new Action(delegate
+                //        {
+                //            textBoxURL.Text = "http://" + textBoxURL.Text;
+                //        }));
+                //}
 
-                if (!textBoxURL.Text.Contains("://"))
-                {
-                    this.Invoke(new Action(delegate
-                        {
-                            textBoxURL.Text = "http://" + textBoxURL.Text;
-                        }));
+
+                if (testURLS.Count > 0) {
+                    // have url list..
+                } else {
+                    testURLS.Add(textBoxURL.Text);
+
                 }
-                if (!Uri.TryCreate(textBoxURL.Text, UriKind.Absolute, out uri))
-                {
-                    listView1.Invoke(new Action(delegate
+
+                foreach (string strUrl in testURLS) {
+                    
+                    if (!Uri.TryCreate(strUrl, UriKind.Absolute, out uri))
+                    {
+                        listView1.Invoke(new Action(delegate
                         {
                             listView1.Items.Add(string.Format("'{0}' is not a valid URL", textBoxURL.Text), 2);
                         }));
-                }
-                else
-                {
-                    PacExtensions.CounterReset();
-                    result = jint.Run(string.Format("FindProxyForURL(\"{0}\",\"{1}\")", uri.ToString(), uri.Host));
-
-                    Trace.WriteLine(result);
-                    textBoxProxy.Invoke(new Action(delegate
+                    }
+                    else
                     {
-                        listView1.Items.Add(string.Format("IsInNet Count: {0} Total Duration: {1} ms", PacExtensions.IsInNetCount, PacExtensions.IsInNetDuration.Milliseconds));
-                        listView1.Items.Add(string.Format("DnsDomainIs Count: {0} Total Duration: {1} ms", PacExtensions.DnsDomainIsCount, PacExtensions.DnsDomainIsDuration.Milliseconds));
+                        PacExtensions.CounterReset();
+                        result = jint.Run(string.Format("FindProxyForURL(\"{0}\",\"{1}\")", uri.ToString(), uri.Host));
 
-                        textBoxProxy.Text = result.ToString();
-                        foreach (string s in PacExtensions.EvaluationHistory)
+                        Trace.WriteLine(result);
+                        listProxyResults1.Invoke(new Action(delegate
                         {
-                            listView1.Items.Add(s, 0);
-                        }
-                    }));
-                }
+                            listView1.Items.Add(string.Format("Testing URL: {0}", strUrl),0 );
+                            listView1.Items.Add(string.Format("IsInNet Count: {0} Total Duration: {1} ms", PacExtensions.IsInNetCount, PacExtensions.IsInNetDuration.Milliseconds), 0);
+                            listView1.Items.Add(string.Format("DnsDomainIs Count: {0} Total Duration: {1} ms", PacExtensions.DnsDomainIsCount, PacExtensions.DnsDomainIsDuration.Milliseconds), 0);
 
+                            string[] arr = new string[4];
+                            ListViewItem itm;
+                            //add items to ListView
+                            arr[0] = listProxyResults1.Items.Count.ToString();
+                            arr[1] = strUrl;
+                            arr[2] = result.ToString();
+                            arr[3] = DateTime.Now.ToString("yyyyMMddHHmmssfff");
+
+                            // arr[2] = ((line - 1).ToString() + " : " + textEditor1.Lines[line - 1]);
+                            itm = new ListViewItem(arr);
+                            listProxyResults1.Items.Add(itm);
+                            listProxyResults1.AutoResizeColumns(ColumnHeaderAutoResizeStyle.ColumnContent);
+                            listProxyResults1.AutoResizeColumns(ColumnHeaderAutoResizeStyle.HeaderSize);
+                            foreach (string s in PacExtensions.EvaluationHistory)
+                            {
+                                listView1.Items.Add(s, 0);
+                            }
+                        }));
+                    }
+
+
+                } // end of foreach url...
 
 
             }
@@ -309,19 +371,24 @@ namespace PacDbg
                         int y = msg.IndexOf(":", x);
                         if (y > 0)
                         {
-                            string lineNumber = msg.Substring(x + 5, y - x - 5);
-                            int line;
-                            if (Int32.TryParse(lineNumber, out line))
+                        string lineNumber = msg.Substring(x + 5, y - x - 5);
+                        int line;
+                        if (Int32.TryParse(lineNumber, out line))
                             {
-                                textEditor1.HighlightActiveLine = true;
-                                textEditor1.GotoLine(line - 1);
+
+                            textEditor1.SelectAll();
+                            textEditor1.SelectionBackColor = textEditor1.BackColor;
+                            textEditor1.Select(textEditor1.GetFirstCharIndexFromLine(line - 1), textEditor1.Lines[line - 1].Length);
+                            textEditor1.SelectionBackColor = Color.Yellow;
+                            //        textEditor1.HighlightActiveLine = true;
+                            //        textEditor1.GotoLine(line - 1);
                             }
                         }
                     }
 
                     if (i > 0)
                     {
-                       msg= msg.Substring(i + 1);
+                        msg = msg.Substring(i + 1);
                     }
                     msg = msg.Substring(0, msg.IndexOf("  at Jint."));
 
@@ -354,8 +421,8 @@ namespace PacDbg
         /// </summary>
         private void LoadProxy()
         {
-            string filename=textBoxPacFile.Text;
-            
+            string filename = textBoxPacFile.Text;
+
             try
             {
                 if (textBoxPacFile.Text.Contains("://"))
@@ -364,16 +431,16 @@ namespace PacDbg
                     using (WebClient Client = new WebClient())
                     {
                         filename = Path.GetTempFileName();
-                        Client.DownloadFile(textBoxPacFile.Text,filename);
+                        Client.DownloadFile(textBoxPacFile.Text, filename);
                         using (StreamReader sr = new StreamReader(filename))
                         {
-                            textEditor1.Text = sr.ReadToEnd();
+                            textEditor1.Text = sr.ReadToEnd().ToString().Replace('\t', ' ');
                         }
                     }
                 }
 
                 listView1.Items.Clear();
-                 
+
                 if (textBoxPacFile.Text.StartsWith("file:"))
                 {
                     listView1.Items.Add(
@@ -393,7 +460,7 @@ namespace PacDbg
                             listView1.Items.Add("PAC file is ASCII encoded", 0);
                         }
 
-                        textEditor1.Text = reader.ReadToEnd();
+                        textEditor1.Text = reader.ReadToEnd().ToString().Replace('\t', ' ');
                     }
                 }
             }
@@ -413,14 +480,22 @@ namespace PacDbg
 
         private void Form1_Resize(object sender, EventArgs e)
         {
-            textEditor1.Width = this.Width - textEditor1.Left - 20;
-            textEditor1.Height = this.Height-textEditor1.Top - 50;
+            textEditor1.Width = Width - textEditor1.Left - 20;
+            textEditor1.Height = Height - textEditor1.Top - 50;
         }
 
         private void toolStripButtonRun_Click(object sender, EventArgs e)
         {
+
             toolStripButtonRun.Enabled = false;
             listView1.Items.Clear();
+            /*
+            this.demoThread =new Thread(new ThreadStart(worker.RunWorkerAsync));
+
+            this.demoThread.Start();
+            */
+
+            //
             worker.RunWorkerAsync();
         }
 
@@ -434,9 +509,14 @@ namespace PacDbg
                     string lineNumber = source.Split(' ')[1];
                     int line;
                     if (Int32.TryParse(lineNumber, out line))
-                    {
-                        textEditor1.HighlightActiveLine = true;
-                        textEditor1.GotoLine(line - 1);
+                   {
+                        System.Diagnostics.Debug.WriteLine  ((line - 1).ToString() + " : " + textEditor1.Lines[line - 1]);
+                        textEditor1.SelectAll();
+                        textEditor1.SelectionBackColor = textEditor1.BackColor;
+                        textEditor1.Select(textEditor1.GetFirstCharIndexFromLine(line - 1), textEditor1.Lines[line - 1].Length);
+                        textEditor1.SelectionBackColor = Color.Yellow;
+                        //    //    textEditor1.HighlightActiveLine = true;
+                        //    //    textEditor1.GotoLine(line - 1);
                     }
                 }
             }
@@ -458,6 +538,76 @@ namespace PacDbg
             }
         }
 
+        private void toolStripButtonOpenTestFile_Click(object sender, EventArgs e)
+        {
+            // Open a text file that contains 1 url per line.
+            OpenFileDialog dialog = new OpenFileDialog();
+            dialog.Filter = "Text Files (*.txt)|*.txt|All Files (*.*)|*.*";
+            if (dialog.ShowDialog() == DialogResult.OK)
+            {
+                textBoxURL.Text = dialog.FileName;
+                toolStripLabel1.Text = "Test URL Text File";
+                textBoxURL.BackColor = System.Drawing.Color.LightPink;
+                textBoxURL.ToolTipText = "List of URL's to test with,\r\nEach line will be tested against the loaded PAC file.";
+
+                // load file and read each line into testURLS
+                int counter = 1;
+                string line;
+                testURLS.Clear();
+                try {
+                    // Read the file and display it line by line.
+                    System.IO.StreamReader file = new System.IO.StreamReader(dialog.FileName);
+                    while ((line = file.ReadLine()) != null)
+                    {
+                        line = line.Trim();
+                        if (line.Length > 3)   
+                        {
+
+                            // dont add comments to file
+                            if (line.Substring(0, 1) != "#")
+                            {
+                                testURLS.Add(line);
+                                listView1.Items.Add(string.Format("Line: {0} - URL {1}: {2}", counter, testURLS.Count, line));
+
+                            }
+                            else {
+                                // line not added to list
+                            }
+
+                        }
+                        else {
+                            // still want line numbers..
+                           
+                        }
+
+                        counter++;
+                    }
+
+                    file.Close();
+
+
+
+
+                    
+                }
+
+                catch (Exception ex)
+                {
+                    MessageBox.Show(string.Format("Unable read input file. Error '{0}'",
+                        ex.Message),
+                        "PacDbg",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
+                }
+                //LoadProxy();
+            }
+        }
+
+        private void textBoxURL_DblClick(object sender, EventArgs e)
+        {
+            toolStripButtonOpenTestFile_Click(sender, e);
+        }
+
         private void toolStripButtonSaveToDisk_Click(object sender, EventArgs e)
         {
             try
@@ -474,7 +624,7 @@ namespace PacDbg
             }
             catch (Exception ex)
             {
-                MessageBox.Show(string.Format("Unable to save. Error '{0}'", 
+                MessageBox.Show(string.Format("Unable to save. Error '{0}'",
                     ex.Message),
                     "PacDbg",
                     MessageBoxButtons.OK,
@@ -486,6 +636,12 @@ namespace PacDbg
         {
 
         }
-        
+
+        private void listProxyResults1_SelectedIndexChanged(object sender, EventArgs e)
+        {
+
+        }
+
+
     }
 }
