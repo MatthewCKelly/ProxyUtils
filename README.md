@@ -9,7 +9,7 @@ from https://github.com/chentiangemalc/ProxyUtils
 
 20160802 - Matthew Kelly
 
-Hi, added some features,
+Hi, added some features and updates to the PacDbg folder,
 
  1: load a text file with urls and iteration with results to a table.
  
