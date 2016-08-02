@@ -92,9 +92,6 @@
       <SpecificVersion>False</SpecificVersion>
       <HintPath>.\Jint.dll</HintPath>
     </Reference>
-    <Reference Include="Storm.TextEditor">
-      <HintPath>.\Storm.TextEditor.dll</HintPath>
-    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
@@ -145,6 +142,9 @@
   <ItemGroup>
     <Content Include="Oxygen-Icons.org-Oxygen-Apps-konqueror.ico" />
     <Content Include="Resources\opentestfile.png" />
+    <Content Include="TestURLlists.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <None Include="Resources\Actions-arrow-right-icon.png" />
     <None Include="Resources\open.png" />
     <None Include="Resources\openfile.png" />

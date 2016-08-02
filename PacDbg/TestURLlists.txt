@@ -1,0 +1,20 @@
+﻿##
+##  Test files for urls
+##
+http://crash.co.nz
+http://supergeek.co.nz
+http://stuff.co.nz
+https://msdn.microsoft.com/en-us/library/aa287535(v=vs.71).aspx
+https://msdn.microsoft.com/en-us/library/system.windows.forms.richtextboxselectiontypes(v=vs.110).aspx
+https://www.facebook.com
+http://aerodyne.nz
+ftp://ftp.hp.com
+
+## Naughty sites.
+http://redtube.com
+http://playboy.com
+
+## white space..
+  
+	
+## end of file..
